@@ -7,27 +7,31 @@ if (!process.env.DATABASE_URL && existsSync('.env.local')) {
   if (envLine) process.env.DATABASE_URL = envLine.slice('DATABASE_URL='.length);
 }
 
-const email = process.env.ADMIN_EMAIL || 'admin.teste@itapecurumirim.ma.gov.br';
-const password = process.env.ADMIN_PASSWORD || 'Semear@2026!';
-const name = process.env.ADMIN_NAME || 'Administrador de Teste';
-
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não configurada. Crie .env.local antes de executar este comando.');
+  console.error('DATABASE_URL não configurada.');
   process.exit(1);
 }
 
 const sql = neon(process.env.DATABASE_URL);
-const passwordHash = await bcrypt.hash(password, 12);
-await sql`
-  INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo)
-  VALUES (${name}, ${email.toLowerCase()}, ${passwordHash}, 'ADMINISTRADOR', true)
-  ON CONFLICT (email) DO UPDATE SET
-    nome = EXCLUDED.nome,
-    senha_hash = EXCLUDED.senha_hash,
-    perfil = 'ADMINISTRADOR',
-    ativo = true,
-    atualizado_em = NOW()
-`;
+await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS usuario VARCHAR(80)`;
+await sql`UPDATE usuarios SET usuario = split_part(email, '@', 1) WHERE usuario IS NULL`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS usuarios_usuario_uidx ON usuarios(LOWER(usuario))`;
 
-console.log(`Usuário administrador criado/atualizado: ${email}`);
-console.log('Senha temporária definida pela variável ADMIN_PASSWORD ou pelo valor padrão do ambiente de desenvolvimento.');
+async function saveUser(usuario, nome, email, senha, perfil) {
+  const senhaHash = await bcrypt.hash(senha, 12);
+  await sql`
+    INSERT INTO usuarios (usuario, nome, email, senha_hash, perfil, ativo)
+    VALUES (${usuario}, ${nome}, ${email}, ${senhaHash}, ${perfil}::perfil_usuario, true)
+    ON CONFLICT (email) DO UPDATE SET
+      usuario = EXCLUDED.usuario,
+      nome = EXCLUDED.nome,
+      senha_hash = EXCLUDED.senha_hash,
+      perfil = EXCLUDED.perfil,
+      ativo = true,
+      atualizado_em = NOW()
+  `;
+}
+
+await saveUser('lukas2020', 'Lukas Administrador', 'lukas2020@itapecurumirim.ma.gov.br', 'lukas2020', 'ADMINISTRADOR');
+await saveUser('12345', 'Operador de Teste', '12345@itapecurumirim.ma.gov.br', '1234', 'OPERADOR');
+console.log('Administrador e operador temporários criados/atualizados.');

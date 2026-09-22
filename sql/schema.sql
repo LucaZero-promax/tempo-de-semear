@@ -9,6 +9,7 @@ CREATE TYPE status_beneficio AS ENUM ('AGUARDANDO_RETIRADA', 'ENTREGUE');
 CREATE TABLE IF NOT EXISTS usuarios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome VARCHAR(160) NOT NULL,
+  usuario VARCHAR(80) NOT NULL UNIQUE,
   email VARCHAR(180) NOT NULL UNIQUE,
   senha_hash TEXT NOT NULL,
   perfil perfil_usuario NOT NULL DEFAULT 'OPERADOR',
@@ -16,6 +17,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS usuario VARCHAR(80);
+UPDATE usuarios SET usuario = split_part(email, '@', 1) WHERE usuario IS NULL;
+ALTER TABLE usuarios ALTER COLUMN usuario SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_usuario_uidx ON usuarios(LOWER(usuario));
 
 CREATE TABLE IF NOT EXISTS agricultores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -8,9 +8,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: 'Banco de dados não configurado. Adicione DATABASE_URL no arquivo .env.local e reinicie o servidor.' }, { status: 503 });
   }
   try {
-    const { email, senha } = await request.json();
+    const { identificador, email, senha } = await request.json();
+    const login = String(identificador || email || '').trim().toLowerCase();
     const sql = database();
-    const rows = await sql`SELECT id, nome, perfil, senha_hash FROM usuarios WHERE email = ${String(email).trim().toLowerCase()} AND ativo = true LIMIT 1`;
+    const rows = await sql`SELECT id, nome, perfil, senha_hash FROM usuarios WHERE (LOWER(usuario) = ${login} OR LOWER(email) = ${login}) AND ativo = true LIMIT 1`;
     const user = rows[0] as { id: string; nome: string; perfil: string; senha_hash: string } | undefined;
     if (!user || !(await bcrypt.compare(String(senha), user.senha_hash))) return NextResponse.json({ erro: 'E-mail ou senha inválidos.' }, { status: 401 });
     const token = await createSession({ id: user.id, nome: user.nome, perfil: user.perfil });

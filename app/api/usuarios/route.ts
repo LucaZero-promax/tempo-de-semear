@@ -16,25 +16,25 @@ export async function GET(request: NextRequest) {
   const session = await adminSession(request);
   if (!session) return NextResponse.json({ erro: 'Apenas administradores podem consultar usuários.' }, { status: 403 });
   const sql = database();
-  const usuarios = await sql`SELECT id, nome, email, perfil, ativo, criado_em FROM usuarios ORDER BY nome`;
+  const usuarios = await sql`SELECT id, usuario, nome, email, perfil, ativo, criado_em FROM usuarios ORDER BY nome`;
   return NextResponse.json({ usuarios });
 }
 
 export async function POST(request: NextRequest) {
   const session = await adminSession(request);
   if (!session) return NextResponse.json({ erro: 'Apenas administradores podem criar usuários.' }, { status: 403 });
-  const { nome, email, senha, perfil = 'OPERADOR' } = await request.json();
-  if (!nome || !email || !senha || senha.length < 8 || !['OPERADOR', 'ADMINISTRADOR'].includes(perfil)) {
-    return NextResponse.json({ erro: 'Informe nome, e-mail, senha com no mínimo 8 caracteres e perfil válido.' }, { status: 400 });
+  const { usuario, nome, email, senha, perfil = 'OPERADOR' } = await request.json();
+  if (!usuario || !nome || !email || !senha || senha.length < 8 || !['OPERADOR', 'ADMINISTRADOR'].includes(perfil)) {
+    return NextResponse.json({ erro: 'Informe usuário, nome, e-mail, senha com no mínimo 8 caracteres e perfil válido.' }, { status: 400 });
   }
   const sql = database();
   const senhaHash = await bcrypt.hash(senha, 12);
   try {
-    const usuarios = await sql`INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (${nome.trim()}, ${email.trim().toLowerCase()}, ${senhaHash}, ${perfil}::perfil_usuario) RETURNING id, nome, email, perfil, ativo`;
+    const usuarios = await sql`INSERT INTO usuarios (usuario, nome, email, senha_hash, perfil) VALUES (${usuario.trim().toLowerCase()}, ${nome.trim()}, ${email.trim().toLowerCase()}, ${senhaHash}, ${perfil}::perfil_usuario) RETURNING id, usuario, nome, email, perfil, ativo`;
     await sql`INSERT INTO logs_auditoria (usuario_id, acao, entidade, entidade_id, detalhes) VALUES (${session.id}, 'CRIACAO', 'usuarios', ${usuarios[0].id}, ${JSON.stringify({ perfil })})`;
     return NextResponse.json(usuarios[0], { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('usuarios_email_key')) return NextResponse.json({ erro: 'Este e-mail já está cadastrado.' }, { status: 409 });
+    if (error instanceof Error && (error.message.includes('usuarios_email_key') || error.message.includes('usuarios_usuario_uidx'))) return NextResponse.json({ erro: 'Este usuário ou e-mail já está cadastrado.' }, { status: 409 });
     throw error;
   }
 }
