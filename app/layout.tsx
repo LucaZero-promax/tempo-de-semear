@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './home.css';
+import './flag-background.css';
 
 export const metadata: Metadata = {
   title: 'Tempo de Semear | Itapecuru Mirim',
